@@ -1,16 +1,17 @@
-package confusedalex.thegoldeconomy;
+package org.conquestmc;
 
 import de.leonhard.storage.Json;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.conquestmc.economy.Bank;
 
 
 public class Events implements org.bukkit.event.Listener {
-    TheGoldEconomy plugin;
+    ConquestEconomy plugin;
     Bank bank;
 
-    public Events(TheGoldEconomy plugin, Bank bank) {
+    public Events(ConquestEconomy plugin, Bank bank) {
         this.plugin = plugin;
         this.bank = bank;
     }

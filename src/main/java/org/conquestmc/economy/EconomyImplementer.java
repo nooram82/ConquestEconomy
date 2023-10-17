@@ -1,26 +1,26 @@
-package confusedalex.thegoldeconomy;
+package org.conquestmc.economy;
 
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.conquestmc.ConquestEconomy;
+import org.conquestmc.Util;
 
 import java.util.List;
-import java.util.ResourceBundle;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class EconomyImplementer implements Economy {
-    TheGoldEconomy plugin;
-    Bank bank;
-    Converter converter;
-    ResourceBundle bundle;
+    ConquestEconomy plugin;
+    private final Bank bank;
 
-    public EconomyImplementer(TheGoldEconomy plugin, ResourceBundle bundle) {
+    private Converter converter;
+
+    public EconomyImplementer(ConquestEconomy plugin) {
         this.plugin = plugin;
-        this.bundle = bundle;
         bank = new Bank(plugin, this);
-        converter = new Converter(this, bundle);
     }
 
     @Override
@@ -30,7 +30,7 @@ public class EconomyImplementer implements Economy {
 
     @Override
     public String getName() {
-        return "TheGoldEconomy";
+        return "ConquestEconomy";
     }
 
     @Override
@@ -491,5 +491,18 @@ public class EconomyImplementer implements Economy {
     @Override
     public boolean createPlayerAccount(OfflinePlayer offlinePlayer, String s) {
         return false;
+    }
+
+    public void initConverter() {
+        converter = new Converter(this);
+        plugin.getLogger().log(Level.INFO, "CONVERTER LOADED!");
+    }
+
+    public Bank getBank() {
+        return bank;
+    }
+
+    public Converter getConverter() {
+        return converter;
     }
 }

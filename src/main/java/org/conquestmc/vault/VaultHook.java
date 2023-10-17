@@ -1,17 +1,18 @@
-package confusedalex.thegoldeconomy;
+package org.conquestmc.vault;
 
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.plugin.ServicePriority;
+import org.conquestmc.ConquestEconomy;
 
 import static java.util.logging.Level.INFO;
 
 public class VaultHook {
-    TheGoldEconomy plugin;
+    ConquestEconomy plugin;
     Economy provider;
 
-    public VaultHook(TheGoldEconomy plugin, Economy provider) {
+    public VaultHook(ConquestEconomy plugin, Economy provider) {
         this.plugin = plugin;
         this.provider = provider;
     }

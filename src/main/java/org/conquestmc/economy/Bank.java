@@ -1,7 +1,8 @@
-package confusedalex.thegoldeconomy;
+package org.conquestmc.economy;
 
 import de.leonhard.storage.Json;
 import org.bukkit.Bukkit;
+import org.conquestmc.ConquestEconomy;
 
 import java.util.HashMap;
 import java.util.Objects;
@@ -14,16 +15,16 @@ public class Bank {
     final Json fakeAccountsFile;
     private final HashMap<String, Integer> fakeAccounts;
 
-    public Bank(TheGoldEconomy theGoldEconomy, EconomyImplementer eco) {
+    public Bank(ConquestEconomy conquestEconomy, EconomyImplementer eco) {
         this.eco = eco;
-        balanceFile = new Json("balance.json", theGoldEconomy.getDataFolder() + "/data/");
+        balanceFile = new Json("balance.json", conquestEconomy.getDataFolder() + "/data/");
         playerBank = new HashMap<>();
-        fakeAccountsFile = new Json("fakeAccounts.json", theGoldEconomy.getDataFolder() + "/data/");
+        fakeAccountsFile = new Json("fakeAccounts.json", conquestEconomy.getDataFolder() + "/data/");
         fakeAccounts = new HashMap<>();
     }
 
     public int getTotalPlayerBalance(String uuid){
-        if (playerBank.containsKey(uuid)) return playerBank.get(uuid) + eco.converter.getInventoryValue(Objects.requireNonNull(Bukkit.getPlayer(UUID.fromString(uuid))));
+        if (playerBank.containsKey(uuid)) return playerBank.get(uuid) + eco.getConverter().getInventoryValue(Objects.requireNonNull(Bukkit.getPlayer(UUID.fromString(uuid))));
         else return balanceFile.getInt(uuid);
 
     }
@@ -48,6 +49,10 @@ public class Bank {
         else if (fakeAccounts.containsKey(uuid))  fakeAccounts.put(uuid, balance);
         else if (fakeAccountsFile.contains(uuid))  fakeAccountsFile.set(uuid, balance);
 
+    }
+
+    public Json getFakeAccountsFile() {
+        return fakeAccountsFile;
     }
 
     public Json getBalanceFile() {

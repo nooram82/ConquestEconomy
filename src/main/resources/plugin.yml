@@ -1,12 +1,12 @@
 # Infos
-name: TheGoldEconomy
+name: ConquestEconomy
 version: '1.5.2'
 description: A simple gold based Economy plugin that just works.
-author: ConfusedAlex
+author: ConfusedAlex, Maroon28
 api-version: 1.18
 
 # Data
 load: STARTUP
-main: confusedalex.thegoldeconomy.TheGoldEconomy
+main: org.conquestmc.eco.ConquestEco
 loadbefore: [Towny]
-depend: [Vault]
+depend: [Vault, ItemsAdder]
