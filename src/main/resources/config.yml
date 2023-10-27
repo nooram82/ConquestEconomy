@@ -1,17 +1,63 @@
 # Do you want to restrict bank commands to bank plots (requires Towny)
 restrictToBankPlot: false
+denominations:
+  gold-coin:
+    value: 1
+    material: PAPER
+    name: '<gold>ɢᴏʟᴅ ᴄᴏɪɴ - ⛃ 1'
+    lore:
+      - ''
+      - '<gray>ᴀ sɪɴɢʟᴇ ɢᴏʟᴅ ᴄᴏɪɴ'
+      - ''
+    custom-model-data: 1
+  coin-pile:
+    value: 10
+    material: PAPER
+    name: '<gold>ɢᴏʟᴅ ᴄᴏɪɴ ᴘɪʟᴇ - ⛃ 10'
+    lore:
+      - ''
+      - '<gray>ᴀ ᴘɪʟᴇ ᴏғ ᴄᴏɪɴs'
+      - ''
+    custom-model-data: 10
+  coin-pouch:
+    value: 50
+    material: PAPER
+    name: '<gold>ɢᴏʟᴅ ᴄᴏɪɴ ᴘᴏᴜᴄʜ - ⛃ 50'
+    lore:
+      - ''
+      - '<gray>ᴀ ᴘᴏᴜᴄʜ ᴏғ ᴄᴏɪɴs'
+      - ''
+    custom-model-data: 50
+  gold-coin-bag:
+    value: 100
+    material: PAPER
+    name: '<gold>ɢᴏʟᴅ ᴄᴏɪɴ ʙᴀɢ - ⛃ 100'
+    lore:
+      - ''
+      - '<gray>ᴀ ʙᴀɢ ғɪʟʟᴇᴅ ᴡɪᴛʜ ᴄᴏɪɴs'
+      - ''
+    custom-model-data: 100
+  gold-coin-chest:
+    value: 200
+    material: PAPER
+    name: '<gold>ɢᴏʟᴅ ᴄᴏɪɴ ᴄʜᴇsᴛ - ⛃ 200'
+    lore:
+      - ''
+      - '<gray>ᴀ ᴄʜᴇsᴛ ᴄʀᴀᴍᴍᴇᴅ ᴡɪᴛʜ ᴄᴏɪɴs'
+      - ''
+    custom-model-data: 200
 messages:
-  info-balance: '<white>You have a total balance of <total> Gold (Bank: <bank> | Inventory: <inv>)'
-  info-withdraw: '<white>You have withdrawn <amount> Gold'
-  info-deposit: '<white>You have deposited <amount> Gold'
-  info-sendmoneyto: 'You''ve sent <gold><amount> Gold</gold> to <target>!'
-  info-moneyreceived: 'You have received <gold><amount> Gold</gold> from <sender>!'
-  info-sender-moneyset: 'Balance of <player> set to <gold><amount>!'
-  info-target-moneyset: 'Your balance was set to <amount>!'
-  info-sender-addmoney: 'Added <gold><amount> Gold to the balance of <player>!'
-  info-target-addmoney: '<amount> was added to your balance!'
-  info-sender-remove: 'Removed <gold><amount> Gold from the balance of <player>!'
-  info-target-remove: '<amount> was removed from your balance!'
+  info-balance: '<white>You have a total balance of ⛃ <total> (Bank: <bank> | Inventory: <inv>)'
+  info-withdraw: '<white>You have withdrawn ⛃ <amount>'
+  info-deposit: '<white>You have deposited ⛃ <amount>'
+  info-sendmoneyto: 'You''ve sent <gold>⛃ <amount></gold> to <target>!'
+  info-moneyreceived: 'You have received <gold>⛃ <amount></gold> from <sender>!'
+  info-sender-moneyset: 'Balance of <player> set to ⛃ <gold><amount>!'
+  info-target-moneyset: 'Your balance was set to ⛃ <amount>!'
+  info-sender-addmoney: 'Added <gold>⛃ <amount> to the balance of <player>!'
+  info-target-addmoney: '⛃ <amount> was added to your balance!'
+  info-sender-remove: 'Removed <gold>⛃ <amount> Gold from the balance of <player>!'
+  info-target-remove: '⛃ <amount> was removed from your balance!'
   help-deposit: 'You need to specify how much gold you want to deposit! Usage: /bank deposit <gold | all>'
   help-withdraw: 'You need to specify how much gold you want to withdraw! Usage: /bank withdraw <gold | all>'
   warning-update: 'You are using an outdated version of the plugin. Please update to the latest version.'
@@ -23,3 +69,6 @@ messages:
   error-notenough: 'You don''t have enough gold!'
   error-payyourself: 'You cannot send money to yourself!'
   error-notenoughmoneywithdraw: 'You can''t withdraw more than you have!'
+  bank-chest-placed: 'Successfully placed bank chest! You are now able to store gold within it using <yellow>/townbank deposit'
+  bank-chest-broken: 'Bank chest removed... All gold stored within it was removed from the town bank'
+  cannot-manipulate-chest: 'You cannot take or remove items from a Bank Chest! Please use /t deposit or /t withdraw to manage your balance!'

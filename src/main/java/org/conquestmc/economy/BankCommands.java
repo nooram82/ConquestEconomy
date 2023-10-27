@@ -14,10 +14,10 @@ import java.util.Objects;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.component;
 
-public class Commands {
+public class BankCommands {
     EconomyImplementer eco;
 
-    public Commands(EconomyImplementer eco) {
+    public BankCommands(EconomyImplementer eco) {
         this.eco = eco;
     }
 

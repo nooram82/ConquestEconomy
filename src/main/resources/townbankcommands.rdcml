@@ -1,0 +1,12 @@
+townbank {
+
+    deposit string:gold/all?* {
+        help deposits gold to town bank
+        hook towndeposit
+    }
+
+    withdraw string:gold/all?* {
+        help withdraws gold from town bank
+        hook townwithdraw
+    }
+}

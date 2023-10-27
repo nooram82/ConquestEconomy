@@ -74,4 +74,8 @@ public class Util {
         }
         return null;
     }
+
+    public static MiniMessage getMiniMessage() {
+        return MINI_MESSAGE;
+    }
 }

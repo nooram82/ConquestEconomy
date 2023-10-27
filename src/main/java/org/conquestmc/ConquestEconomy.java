@@ -1,24 +1,24 @@
 package org.conquestmc;
 
-import dev.lone.itemsadder.api.Events.ItemsAdderLoadDataEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.conquestmc.economy.Commands;
+import org.conquestmc.economy.Bank;
+import org.conquestmc.economy.BankCommands;
 import org.conquestmc.economy.EconomyImplementer;
+import org.conquestmc.economy.TownBankCommands;
+import org.conquestmc.towny.TownBankDatabase;
+import org.conquestmc.towny.TownBankListener;
 import org.conquestmc.vault.VaultHook;
 import redempt.redlib.commandmanager.ArgType;
 import redempt.redlib.commandmanager.CommandParser;
 
 import java.util.Map;
 
-public final class ConquestEconomy extends JavaPlugin implements Listener{
+public final class ConquestEconomy extends JavaPlugin{
 
-    EconomyImplementer eco;
+    private EconomyImplementer eco;
     private VaultHook vaultHook;
     private static ConquestEconomy PLUGIN;
 
@@ -26,30 +26,35 @@ public final class ConquestEconomy extends JavaPlugin implements Listener{
         PLUGIN = this;
     }
 
-    public static Plugin getPlugin() {
+    public static ConquestEconomy getPlugin() {
         return PLUGIN;
     }
 
     @Override
     public void onEnable() {
-        // Register the listener for the IA load event.
-        getServer().getPluginManager().registerEvents(this, this);
         eco = new EconomyImplementer(this);
         vaultHook = new VaultHook(this, eco);
         vaultHook.hook();
 
-        // Commands from RedLib
-        ArgType<OfflinePlayer> offlinePlayer = new ArgType<>("offlinePlayer", Bukkit::getOfflinePlayer)
-                .tabStream(c -> Bukkit.getOnlinePlayers().stream().map(Player::getName));
-        new CommandParser(this.getResource("commands.rdcml"))
-                .setArgTypes(offlinePlayer)
-                .parse()
-                .register("ConquestEconomy",
-                        new Commands(eco));
-
-        // Event class registering
-        Bukkit.getPluginManager().registerEvents(new Events (this, eco.getBank()), this);
+        registerEvents();
         saveDefaultConfig();
+        TownBankDatabase.populateTownBanks();
+        // Commands from RedLib
+        registerCommands();
+        populateOnlinePlayerBanks();
+    }
+
+    private void populateOnlinePlayerBanks() {
+        Bank bank = eco.getBank();
+        for (Player player: getServer().getOnlinePlayers()) {
+            String uuid = player.getUniqueId().toString();
+            bank.getPlayerBank().put(uuid, bank.getBalanceFile().getInt(uuid));
+        }
+    }
+
+    private void registerEvents() {
+        Bukkit.getPluginManager().registerEvents(new Events (this, eco.getBank()), this);
+        Bukkit.getPluginManager().registerEvents(new TownBankListener(), this);
     }
 
     @Override
@@ -71,15 +76,28 @@ public final class ConquestEconomy extends JavaPlugin implements Listener{
             eco.getBank().getFakeAccountsFile().getFileData().insert(key, value);
         }
         eco.getBank().getFakeAccountsFile().write();
+        TownBankDatabase.saveTownBanks();
 
         vaultHook.unhook();
 
         getLogger().info("ConquestEconomy disabled.");
     }
 
-    @EventHandler
-    void onIALoad(ItemsAdderLoadDataEvent event) {
-        // Initialize the converter which depends on IA item data to work.
-        eco.initConverter();
+    private void registerCommands() {
+        ArgType<OfflinePlayer> offlinePlayer = new ArgType<>("offlinePlayer", Bukkit::getOfflinePlayer)
+                .tabStream(c -> Bukkit.getOnlinePlayers().stream().map(Player::getName));
+        new CommandParser(this.getResource("commands.rdcml"))
+                .setArgTypes(offlinePlayer)
+                .parse()
+                .register("ConquestEconomy",
+                        new BankCommands(eco));
+        new CommandParser(this.getResource("townbankcommands.rdcml"))
+                .parse()
+                .register("ConquestEconomy",
+                        new TownBankCommands(eco));
+    }
+
+    public EconomyImplementer getEco() {
+        return eco;
     }
 }

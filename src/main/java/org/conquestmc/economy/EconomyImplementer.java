@@ -10,16 +10,16 @@ import org.conquestmc.Util;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.logging.Level;
 
 public class EconomyImplementer implements Economy {
     ConquestEconomy plugin;
     private final Bank bank;
 
-    private Converter converter;
+    private final Converter converter;
 
     public EconomyImplementer(ConquestEconomy plugin) {
         this.plugin = plugin;
+        converter = new Converter(this);
         bank = new Bank(plugin, this);
     }
 
@@ -45,17 +45,17 @@ public class EconomyImplementer implements Economy {
 
     @Override
     public String format(double v) {
-        return v + " Gold";
+        return "⛃ " + v;
     }
 
     @Override
     public String currencyNamePlural() {
-        return "Gold";
+        return "Gold Coins";
     }
 
     @Override
     public String currencyNameSingular() {
-        return "Gold";
+        return "Gold Coin";
     }
 
     @Override
@@ -491,11 +491,6 @@ public class EconomyImplementer implements Economy {
     @Override
     public boolean createPlayerAccount(OfflinePlayer offlinePlayer, String s) {
         return false;
-    }
-
-    public void initConverter() {
-        converter = new Converter(this);
-        plugin.getLogger().log(Level.INFO, "CONVERTER LOADED!");
     }
 
     public Bank getBank() {

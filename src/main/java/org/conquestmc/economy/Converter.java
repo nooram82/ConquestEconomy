@@ -4,14 +4,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.conquestmc.ConquestEconomy;
 import org.conquestmc.Util;
-import org.conquestmc.economy.EconomyImplementer;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static dev.lone.itemsadder.api.CustomStack.getInstance;
+import java.util.*;
+import java.util.logging.Level;
 
 public class Converter {
 
@@ -21,59 +20,49 @@ public class Converter {
         this.eco = economyImplementer;
     }
 
-    private static final Map<Integer, ItemStack> COIN_DENOMINATIONS =  Map.of(
-            1, getInstance("gold_coin").getItemStack(),
-            10, getInstance("gold_coin_pile").getItemStack(),
-            50, getInstance("gold_coin_pouch").getItemStack(),
-            100, getInstance("gold_coin_bag").getItemStack(),
-            200, getInstance("gold_coin_chest").getItemStack()
-    );
+    private static final List<Denomination> COIN_DENOMINATIONS = loadDenominations();
+
 
     public int getValue(ItemStack item) {
         // The item meta is designed specifically to where the data = the value.
         // I.E a gold coin has the model data value of 1, and is also equal to 1.
-        return item.getItemMeta().getCustomModelData();
+        return item.getItemMeta().getCustomModelData() * item.getAmount();
     }
 
     public boolean isNotGold(ItemStack item) {
-        for (ItemStack denomination: COIN_DENOMINATIONS.values()) {
-            if (denomination.isSimilar(item))
+        for (Denomination denomination: COIN_DENOMINATIONS) {
+            if (denomination.getItem().isSimilar(item))
                 return false;
         }
         return true;
     }
 
-    public int getInventoryValue(Player player){
+    public int getInventoryValue(Inventory inv){
         int value = 0;
 
         // calculating the value of all the gold in the inventory to nuggets
-        for (ItemStack item : player.getInventory()) {
+        for (ItemStack item : inv) {
             if (item == null) continue;
 
             if (isNotGold(item)) continue;
 
-            value += (getValue(item) * item.getAmount());
+            value += getValue(item);
 
         }
         return value;
     }
 
-    public void remove(Player player, int amount){
-        int value = 0;
-
-        // calculating the value of all the gold in the inventory to nuggets
-        for (ItemStack item : player.getInventory()) {
-            if (item == null) continue;
-            if (isNotGold(item)) continue;
-
-            value += (getValue(item) * item.getAmount());
-        }
+    public int getInventoryValue(Player player){
+        return getInventoryValue(player.getInventory());
+    }
+    public void remove(Inventory inv, int amount){
+        int value = getInventoryValue(inv);
 
         // Checks if the Value of the items is greater than the amount to deposit
         if (value < amount) return;
 
         // Deletes all gold items
-        for (ItemStack item : player.getInventory()) {
+        for (ItemStack item : inv) {
             if (item == null) continue;
             if (isNotGold(item)) continue;
 
@@ -82,59 +71,48 @@ public class Converter {
         }
 
         int newBalance = value - amount;
-        give(player, newBalance);
+        giveAndReturnExcess(inv, newBalance);
     }
 
-    public void give(Player player, int value){
-        boolean warning = false;
+    public int giveAndReturnExcess(Inventory inv, int value) {
+        int excess = 0;
 
-        HashMap<Integer, ItemStack> chests = player.getInventory().addItem(getCoinStack(200, value/200));
-        for (ItemStack item : chests.values()) {
-            if (isDenominationItem(item, 200) && item.getAmount() > 0) {
-                player.getWorld().dropItem(player.getLocation(), item);
-                warning = true;
+        for (Denomination denomination : COIN_DENOMINATIONS) {
+            int coinsToGive = value / denomination.getValue();
+            value -= coinsToGive * denomination.getValue();
+
+            HashMap<Integer, ItemStack> coinMap = inv.addItem(getCoinStack(denomination, coinsToGive));
+
+            for (ItemStack item : coinMap.values()) {
+                if (isDenominationItem(item, denomination) && item.getAmount() > 0) {
+                    inv.getLocation().getWorld().dropItem(inv.getLocation(), item);
+                    excess += getValue(item);
+                }
             }
         }
+        return excess;
+    }
 
-        value -= (value/200)*200;
+    public ItemStack[] compress(int value) {
 
-        HashMap<Integer, ItemStack> bags = player.getInventory().addItem(getCoinStack(100, value/100));
-        for (ItemStack item : bags.values()) {
-            if (isDenominationItem(item, 100) && item.getAmount() > 0) {
-                player.getWorld().dropItem(player.getLocation(), item);
-                warning = true;
-            }
+        List<ItemStack> items = new ArrayList<>();
+        for (Denomination denomination : COIN_DENOMINATIONS) {
+            int coinsToGive = value / denomination.getValue();
+            value -= coinsToGive * denomination.getValue();
+
+            items.add(getCoinStack(denomination, coinsToGive));
         }
+        return items.toArray(new ItemStack[0]);
+    }
 
-        value -= (value/100)*100;
+    public void remove(Player player, int amount){
+        remove(player.getInventory(), amount);
+    }
 
-        HashMap<Integer, ItemStack> pouches = player.getInventory().addItem(getCoinStack(50, value/50));
-        for (ItemStack item : pouches.values()) {
-            if (isDenominationItem(item, 50) && item.getAmount() > 0) {
-                player.getWorld().dropItem(player.getLocation(), item);
-                warning = true;
-            }
-        }
-        value -= (value/50)*50;
-
-        HashMap<Integer, ItemStack> piles = player.getInventory().addItem(getCoinStack(10, value/10));
-        for (ItemStack item : piles.values()) {
-            if (isDenominationItem(item, 10) && item.getAmount() > 0) {
-                player.getWorld().dropItem(player.getLocation(), item);
-                warning = true;
-            }
-        }
-        value -= (value/10)*10;
-
-        HashMap<Integer, ItemStack> coins = player.getInventory().addItem(getCoinStack(1, value));
-        for (ItemStack item : coins.values()) {
-            if (isDenominationItem(item, 1) && item.getAmount() > 0) {
-                player.getWorld().dropItem(player.getLocation(), item);
-                warning = true;
-            }
-        }
-
-        if (warning)
+    public void give(Player player, int value) {
+        // This gives everything, but if it is true then it means it could not
+        // fill up the entire inventory, therefore it drops.
+        if (giveAndReturnExcess(player.getInventory(), value) > 0)
             player.sendMessage(Util.getMessage("warning-drops"));
     }
 
@@ -173,7 +151,7 @@ public class Converter {
 
             if (isNotGold(item)) continue;
 
-            value = value + (getValue(item) * item.getAmount());
+            value += getValue(item);
             item.setAmount(0);
             item.setType(Material.AIR);
         }
@@ -189,13 +167,26 @@ public class Converter {
         eco.depositPlayer(op, nuggets);
     }
 
-    private ItemStack getCoinStack(int denomination, int amount) {
-        ItemStack stack = COIN_DENOMINATIONS.get(denomination);
+    private ItemStack getCoinStack(Denomination denomination, int amount) {
+        ItemStack stack = denomination.getItem();
         stack.setAmount(amount);
         return stack;
     }
 
-    private boolean isDenominationItem(ItemStack item, int denomination) {
-        return COIN_DENOMINATIONS.get(denomination).isSimilar(item);
+    private boolean isDenominationItem(ItemStack item, Denomination denomination) {
+        return item.isSimilar(denomination.getItem());
+    }
+
+    private static List<Denomination> loadDenominations() {
+        var denominationsSection = ConquestEconomy.getPlugin().getConfig().getConfigurationSection("denominations");
+        List<Denomination> denominations = new ArrayList<>();
+        for (String key: denominationsSection.getKeys(false)) {
+            denominations.add(new Denomination(key));
+        }
+        // Sort the denominations based on their values
+        denominations.sort(Collections.reverseOrder(Comparator.comparingInt(Denomination::getValue)));
+
+        ConquestEconomy.getPlugin().getLogger().log(Level.INFO, "Loaded " + denominations.size());
+        return denominations;
     }
 }

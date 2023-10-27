@@ -9,7 +9,6 @@ bank {
         help deposits money
         hook deposit
         user player
-
     }
 
     withdraw string:gold/all?* {
