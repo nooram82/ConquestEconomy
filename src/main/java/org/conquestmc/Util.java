@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 public class Util {
     private static final FileConfiguration CONFIG = ConquestEconomy.getPlugin().getConfig();
@@ -73,6 +74,14 @@ public class Util {
             }
         }
         return null;
+    }
+
+    public static boolean isOfflinePlayer(UUID uuid) {
+        for (OfflinePlayer p : Bukkit.getOfflinePlayers()) {
+            if (uuid.equals(p.getUniqueId()))
+                return true;
+        }
+        return false;
     }
 
     public static MiniMessage getMiniMessage() {

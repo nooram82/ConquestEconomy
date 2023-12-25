@@ -1,5 +1,8 @@
 package org.conquestmc.economy;
 
+import com.palmergames.bukkit.towny.TownyAPI;
+import com.palmergames.bukkit.towny.object.Nation;
+import com.palmergames.bukkit.towny.object.Town;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
@@ -7,6 +10,9 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.conquestmc.ConquestEconomy;
 import org.conquestmc.Util;
+import org.conquestmc.towny.TownBank;
+import org.conquestmc.towny.TownBankDatabase;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.UUID;
@@ -146,16 +152,15 @@ public class EconomyImplementer implements Economy {
         return v < bank.getTotalPlayerBalance(offlinePlayer.getUniqueId().toString());
     }
 
-    @Override
-    public EconomyResponse withdrawPlayer(String s, double amount) {
+    public EconomyResponse withdrawPlayer(UUID uuid, double amount) {
         int oldBalance = 0;
 
         // if amount is negative return
-        if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
+        if (amount < 0)
+            return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        if (Util.isOfflinePlayer(s) != null) {
-            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(s);
-            String uuid = offlinePlayer.getUniqueId().toString();
+        if (Util.isOfflinePlayer(uuid)) {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
 
             // if player is online
             if (offlinePlayer.isOnline()) {
@@ -165,201 +170,143 @@ public class EconomyImplementer implements Economy {
                     return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
                 // get balance and InventoryValue from Player
-                int oldBankBalance = bank.getAccountBalance(uuid);
+                int oldBankBalance = bank.getAccountBalance(uuid.toString());
                 int oldInventoryBalance = converter.getInventoryValue(player);
 
 
                 // If balance + InventoryValue is < amount, return
                 if (amount > oldBankBalance + oldInventoryBalance)
                     return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "Not enough Money!");
-                // If bank balances is enough to cover amount
-                if (oldBankBalance - amount > 0) {
-                    bank.setBalance(uuid, (int) (oldBankBalance - amount));
-                    return new EconomyResponse(amount, (oldBankBalance - amount), EconomyResponse.ResponseType.SUCCESS, "");
+                // Withdraw from inventory first then bank
+                if (oldInventoryBalance > amount) {
+                    converter.remove(player, (int) amount);
+                    return new EconomyResponse(amount, (oldInventoryBalance - amount), EconomyResponse.ResponseType.SUCCESS, "");
                 } else {
-                    // Set balance to 0 and cover rest of the costs with Inventory Funds
-                    int diff = (int) (amount - oldBankBalance);
-                    bank.setBalance(uuid, 0);
-                    converter.remove(player, diff);
-
-                    return new EconomyResponse(amount, oldInventoryBalance - amount, EconomyResponse.ResponseType.SUCCESS, "");
+                    // Withdraw from bank
+                    int diff = (int) (amount - oldInventoryBalance);
+                    converter.remove(player, oldInventoryBalance);
+                    bank.setBalance(uuid.toString(), oldBankBalance - diff);
+                    return new EconomyResponse(amount, (oldBankBalance - diff), EconomyResponse.ResponseType.SUCCESS, "");
                 }
             } else {
                 // When player is offline
-                oldBalance = bank.getTotalPlayerBalance(uuid);
+                oldBalance = bank.getTotalPlayerBalance(uuid.toString());
                 int newBalance = (int) (oldBalance - amount);
-                bank.setBalance(uuid, newBalance);
+                bank.setBalance(uuid.toString(), newBalance);
                 return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
             }
+        }
+        return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "Player not found!");
+    }
+
+
+    @Override
+    public EconomyResponse withdrawPlayer(String accountName, double amount) {
+        int oldBalance = 0;
+
+        // if amount is negative return
+        if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
+
+        if (Util.isOfflinePlayer(accountName) != null) {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(accountName);
+            return withdrawPlayer(offlinePlayer.getUniqueId(), amount);
         } else {
-            oldBalance = bank.getFakeBalance(s);
-            int newBalance = (int) (oldBalance - amount);
-            bank.setBalance(s, newBalance);
-            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
+            return withdrawFromFakeAccount(accountName, amount);
         }
     }
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer offlinePlayer, double amount) {
-        String uuid = offlinePlayer.getUniqueId().toString();
-        Player player;
         int oldBalance = 0;
 
         // if amount is negative return
-        if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
+        if (amount < 0)
+            return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        // if player is online
-        if (offlinePlayer.isOnline()) {
-            player = offlinePlayer.getPlayer();
-
-            if (player == null) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
-
-            // get Balance and InventoryValue
-            int oldBankBalance = bank.getAccountBalance(uuid);
-            int oldInventoryBalance = converter.getInventoryValue(player);
-
-            // If balance + InventoryValue is < amount, return
-            if (amount > oldBankBalance + oldInventoryBalance)
-                return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
-            // If bank balances is enough to cover amount
-            if (oldBankBalance - amount > 0) {
-                bank.setBalance(uuid, (int) (oldBankBalance - amount));
-                return new EconomyResponse(amount, (oldBankBalance - amount), EconomyResponse.ResponseType.SUCCESS, "");
-            } else {
-                // Set balance to 0 and cover rest of the costs with Inventory Funds
-                int diff = (int) (amount - oldBankBalance);
-                bank.setBalance(uuid, 0);
-                converter.remove(player, diff);
-                return new EconomyResponse(amount, oldInventoryBalance - amount, EconomyResponse.ResponseType.SUCCESS, "");
-            }
-        } else {
-            // if offline or fakeAccount
-            oldBalance = bank.getTotalPlayerBalance(uuid);
-            int newBalance = (int) (oldBalance - amount);
-            bank.setBalance(uuid, newBalance);
-
-            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
-        }
+        return withdrawPlayer(offlinePlayer.getUniqueId(), amount);
     }
 
     @Override
-    public EconomyResponse withdrawPlayer(String s, String s1, double amount) {
+    public EconomyResponse withdrawPlayer(String accountName, String s1, double amount) {
         int oldBalance = 0;
 
         // if amount is negative return
-        if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
+        if (amount < 0)
+            return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        if (Util.isOfflinePlayer(s) != null) {
-            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(s);
-            String uuid = offlinePlayer.getUniqueId().toString();
-
-            // if player is online
-            if (offlinePlayer.isOnline()) {
-                Player player = offlinePlayer.getPlayer();
-
-                if (player == null)
-                    return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
-
-                // get balance and InventoryValue from Player
-                int oldBankBalance = bank.getAccountBalance(uuid);
-                int oldInventoryBalance = converter.getInventoryValue(player);
-
-
-                // If balance + InventoryValue is < amount, return
-                if (amount > oldBankBalance + oldInventoryBalance)
-                    return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "Not enough Money!");
-                // If bank balances is enough to cover amount
-                if (oldBankBalance - amount > 0) {
-                    bank.setBalance(uuid, (int) (oldBankBalance - amount));
-                    return new EconomyResponse(amount, (oldBankBalance - amount), EconomyResponse.ResponseType.SUCCESS, "");
-                } else {
-                    // Set balance to 0 and cover rest of the costs with Inventory Funds
-                    int diff = (int) (amount - oldBankBalance);
-                    bank.setBalance(uuid, 0);
-                    converter.remove(player, diff);
-
-                    return new EconomyResponse(amount, oldInventoryBalance - amount, EconomyResponse.ResponseType.SUCCESS, "");
-                }
-            } else {
-                // When player is offline
-                oldBalance = bank.getTotalPlayerBalance(uuid);
-                int newBalance = (int) (oldBalance - amount);
-                bank.setBalance(uuid, newBalance);
-                return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
-            }
+        if (Util.isOfflinePlayer(accountName) != null) {
+            return withdrawPlayer(Bukkit.getOfflinePlayer(accountName).getUniqueId(), amount);
         } else {
-            oldBalance = bank.getFakeBalance(s);
-            int newBalance = (int) (oldBalance - amount);
-            bank.setBalance(s, newBalance);
-            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
+            return withdrawFromFakeAccount(accountName, amount);
         }
+    }
+
+    @NotNull
+    private EconomyResponse withdrawFromFakeAccount(String accountName, double amount) {
+        int oldBalance = bank.getFakeBalance(accountName);
+        int newBalance = (int) (oldBalance - amount);
+        TownBank townBank = getTownBank(accountName);
+        if (townBank != null) {
+            if (townBank.getBalance() >= amount) {
+                bank.setBalance(accountName, newBalance);
+                Bukkit.getScheduler().runTask(ConquestEconomy.getPlugin(), () -> {
+                    townBank.remove((int) amount);
+                    townBank.removeMoney((int) amount);
+                });
+                return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
+            } else {
+                return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.FAILURE, "failed to remove!");
+            }
+        }
+        bank.setBalance(accountName, newBalance);
+        // Means it wasn't a potential town bank anyway, so maybe some NPC account or something. Still, withdrawn and successful.
+        return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
     }
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer offlinePlayer, String s, double amount){
-        String uuid = offlinePlayer.getUniqueId().toString();
-        Player player;
         int oldBalance = 0;
 
         // if amount is negative return
         if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        // if player is online
-        if (offlinePlayer.isOnline()) {
-            player = offlinePlayer.getPlayer();
+        return withdrawPlayer(offlinePlayer.getUniqueId(), amount);
+    }
 
-            if (player == null) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
+    private void withdrawPlayerPhysical(Player player, int amount) {
+        String uuid = player.getUniqueId().toString();
+        int oldBalance = bank.getAccountBalance(uuid);
 
-            // get Balance and InventoryValue
-            int oldBankBalance = bank.getAccountBalance(uuid);
-            int oldInventoryBalance = converter.getInventoryValue(player);
+        // If amount is negative -> return
+        if (amount < 0) return;
 
-            // If balance + InventoryValue is < amount, return
-            if (amount > oldBankBalance + oldInventoryBalance)
-                return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
-            // If bank balances is enough to cover amount
-            if (oldBankBalance - amount > 0) {
-                bank.setBalance(uuid, (int) (oldBankBalance - amount));
-                return new EconomyResponse(amount, (oldBankBalance - amount), EconomyResponse.ResponseType.SUCCESS, "");
-            } else {
-                // Set balance to 0 and cover rest of the costs with Inventory Funds
-                int diff = (int) (amount - oldBankBalance);
-                bank.setBalance(uuid, 0);
-                converter.remove(player, diff);
-
-                return new EconomyResponse(amount, oldInventoryBalance - amount, EconomyResponse.ResponseType.SUCCESS, "");
-            }
-        } else {
-            // if offline
-            oldBalance = bank.getTotalPlayerBalance(uuid);
-            int newBalance = (int) (oldBalance - amount);
-            bank.setBalance(uuid, newBalance);
-
-            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
-        }
+        converter.withdraw(player, amount);
+        int newBalance = oldBalance - amount;
+        bank.setBalance(uuid, newBalance);
     }
 
     @Override
-    public EconomyResponse depositPlayer(String s, double amount) {
+    public EconomyResponse depositPlayer(String accountName, double amount) {
         int oldBalance = 0;
 
         // If amount is negative -> return
-        if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
+        if (amount < 0)
+            return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        if (Util.isOfflinePlayer(s) != null) {
-            OfflinePlayer player = Bukkit.getOfflinePlayer(s);
+        if (Util.isOfflinePlayer(accountName) != null) {
+            OfflinePlayer player = Bukkit.getOfflinePlayer(accountName);
             String uuid = player.getUniqueId().toString();
-
+            if (player.isOnline()) {
+                depositPlayerPhysical(player.getPlayer(), (int) amount);
+                return new EconomyResponse(amount, bank.getAccountBalance(player.getUniqueId().toString()), EconomyResponse.ResponseType.SUCCESS, "");
+            }
             // Getting balance and calculating new Balance
             oldBalance = bank.getAccountBalance(uuid);
             int newBalance = (int) (oldBalance + amount);
-            bank.setBalance(uuid, newBalance);
+            bank.setBalance(uuid, Math.min(5000, newBalance));
             return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
         } else {
-            oldBalance = bank.getFakeBalance(s);
-            int newBalance = (int) (oldBalance + amount);
-            bank.setBalance(s, newBalance);
-            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
+            return depositNonPlayer(accountName, amount);
         }
     }
 
@@ -372,30 +319,68 @@ public class EconomyImplementer implements Economy {
         // If amount is negative -> return
         if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        bank.setBalance(uuid, newBalance);
+        if (offlinePlayer.isOnline()) {
+            depositPlayerPhysical(offlinePlayer.getPlayer(), (int) amount);
+            return new EconomyResponse(amount, bank.getAccountBalance(offlinePlayer.getUniqueId().toString()), EconomyResponse.ResponseType.SUCCESS, "");
+        }
+
+        bank.setBalance(uuid, Math.min(5000, newBalance));
         return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
     }
 
     @Override
-    public EconomyResponse depositPlayer(String s, String s1, double amount) {
+    public EconomyResponse depositPlayer(String accountName, String worldName, double amount) {
         int oldBalance = 0;
 
         // If amount is negative -> return
         if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
 
-        if (Util.isOfflinePlayer(s) != null) {
-            OfflinePlayer player = Bukkit.getOfflinePlayer(s);
+        if (Util.isOfflinePlayer(accountName) != null) {
+            OfflinePlayer player = Bukkit.getOfflinePlayer(accountName);
+            if (player.isOnline()) {
+                depositPlayerPhysical(player.getPlayer(), (int) amount);
+                return new EconomyResponse(amount, bank.getAccountBalance(player.getUniqueId().toString()), EconomyResponse.ResponseType.SUCCESS, "");
+            }
             String uuid = player.getUniqueId().toString();
 
             // Getting balance and calculating new Balance
             oldBalance = bank.getAccountBalance(uuid);
             int newBalance = (int) (oldBalance + amount);
-            bank.setBalance(uuid, newBalance);
+            bank.setBalance(uuid, Math.min(5000, newBalance));
             return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
         } else {
-            oldBalance = bank.getFakeBalance(s);
+            return depositNonPlayer(accountName, amount);
+        }
+    }
+
+    private void depositPlayerPhysical(Player player, int amount) {
+        String uuid = player.getUniqueId().toString();
+        int oldBalance = bank.getAccountBalance(uuid);
+
+        // If amount is negative -> return
+        if (amount < 0) return;
+
+        int excess = converter.giveAndReturnExcess(player.getInventory(), amount);
+        int newBalance = oldBalance + (amount - excess);
+        bank.setBalance(uuid, newBalance);
+    }
+    @NotNull
+    private EconomyResponse depositNonPlayer(String accountName, double amount) {
+        TownBank townBank = getTownBank(accountName);
+        if (townBank != null) {
+            if (!townBank.getChestLocations().isEmpty()) {
+                Bukkit.getScheduler().runTask(ConquestEconomy.getPlugin(), () ->  {
+                    townBank.add((int) amount);
+                    bank.setBalance(accountName, townBank.getBalance());
+                });
+                return new EconomyResponse(amount, townBank.getBalance(), EconomyResponse.ResponseType.SUCCESS, "");
+            } else {
+                return new EconomyResponse(amount, townBank.getBalance(), EconomyResponse.ResponseType.FAILURE, "failed to deposit!");
+            }
+        } else {
+            int oldBalance = bank.getFakeBalance(accountName);
             int newBalance = (int) (oldBalance + amount);
-            bank.setBalance(s, newBalance);
+            bank.setBalance(accountName, newBalance);
             return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
         }
     }
@@ -408,7 +393,10 @@ public class EconomyImplementer implements Economy {
 
         // If amount is negative -> return
         if (amount < 0) return new EconomyResponse(amount, oldBalance, EconomyResponse.ResponseType.FAILURE, "error");
-
+        if (offlinePlayer.isOnline()) {
+            depositPlayerPhysical(offlinePlayer.getPlayer(), (int) amount);
+            return new EconomyResponse(amount, bank.getAccountBalance(offlinePlayer.getUniqueId().toString()), EconomyResponse.ResponseType.SUCCESS, "");
+        }
         bank.setBalance(uuid, newBalance);
         return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
     }
@@ -499,5 +487,18 @@ public class EconomyImplementer implements Economy {
 
     public Converter getConverter() {
         return converter;
+    }
+
+    private TownBank getTownBank(String accountName) {
+        TownyAPI townyAPI = TownyAPI.getInstance();
+        for (Town town: townyAPI.getTowns()) {
+            if (town.getAccount().getName().equals(accountName))
+                return TownBankDatabase.getTownBank(town);
+        }
+        for (Nation nation: townyAPI.getNations()) {
+            if (nation.getAccount().getName().equals(accountName))
+                return TownBankDatabase.getTownBank(nation.getCapital());
+        }
+        return null;
     }
 }

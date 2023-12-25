@@ -1,24 +1,16 @@
 package org.conquestmc.economy;
 
 import com.palmergames.bukkit.towny.TownyAPI;
-import com.palmergames.bukkit.towny.object.Town;
 import com.palmergames.bukkit.towny.object.TownBlockType;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 import org.conquestmc.towny.TownBank;
 import org.conquestmc.towny.TownBankDatabase;
-import org.jetbrains.annotations.Nullable;
 import redempt.redlib.commandmanager.CommandHook;
 
 import java.util.Objects;
 import java.util.Optional;
 
-import static net.kyori.adventure.text.Component.text;
-import static net.kyori.adventure.text.minimessage.tag.resolver.Placeholder.component;
 import static org.conquestmc.Util.getMessage;
 
 public class TownBankCommands {
@@ -78,7 +70,6 @@ public class TownBankCommands {
 
     private Optional<Integer> extractCoinValue(Player player, String coins, int max) {
         if (coins.equals("all")) {
-            player.sendMessage(getMessage("info-deposit", component("amount", text(max))));
             return Optional.of(max);
         }
         int amount = Integer.parseInt(coins);
@@ -90,9 +81,6 @@ public class TownBankCommands {
         } else if (amount > max) {
             player.sendMessage(getMessage("error-notenough"));
         } else {
-            player.sendMessage(getMessage("info-deposit",
-                    component("amount", text(coins)))
-            );
             return Optional.of(amount);
         }
         return Optional.empty();

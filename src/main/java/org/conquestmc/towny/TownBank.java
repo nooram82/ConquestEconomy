@@ -2,6 +2,8 @@ package org.conquestmc.towny;
 
 import com.palmergames.bukkit.towny.object.Town;
 import de.leonhard.storage.Json;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -11,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.conquestmc.ConquestEconomy;
+import org.conquestmc.Util;
 import org.conquestmc.economy.Converter;
 
 import java.util.ArrayList;
@@ -50,12 +53,15 @@ public class TownBank {
 
     public void addMoney(int amount) {
         this.balance = balance + amount;
-        town.getAccount().setBalance(balance, "gold deposited");
     }
 
     public void removeMoney(int amount) {
         this.balance = Math.max(balance - amount, 0);
-        town.getAccount().setBalance(balance, "gold withdrawn");
+    }
+
+    public void removeMoneyThenItems(int amount) {
+        removeMoney(amount);
+        Bukkit.getScheduler().runTask(ConquestEconomy.getPlugin(), () -> remove(amount));
     }
 
     public boolean isBankChest(Block block) {
@@ -106,17 +112,17 @@ public class TownBank {
         bankFile.set("balance", balance);
     }
 
-    public boolean withdraw(Player player, int amount) {
+    public void withdraw(Player player, int amount) {
         int remainingGold = amount;
         int cannotStore = 0;
         if (getBalance() < amount) {
-            Bukkit.broadcastMessage("Not enough gold!");
-            return false;
+            player.sendMessage(Util.getMessage("error-notenough"));
+            return;
         }
 
-        if (getPhysicalChestInventories().isEmpty()) {
-            Bukkit.broadcastMessage("No chests found!");
-            return false;
+        if (getChestLocations().isEmpty()) {
+            player.sendMessage(Util.getMessage("error-no-bank-chests"));
+            return;
         }
 
         for (Inventory chestInventory : getPhysicalChestInventories()) {
@@ -150,19 +156,20 @@ public class TownBank {
             for (ItemStack goldItem : excessItems) {
                 player.getWorld().dropItem(player.getLocation(), goldItem);
             }
+            player.sendMessage(Util.getMessage("warning-drops-bank"));
         }
-        return true;
+
+        player.sendMessage(Util.getMessage("bank-withdrawn", Placeholder.component("amount", Component.text(amount - remainingGold))));
     }
 
-    public boolean remove(int amount) {
+    public void remove(int amount) {
         int remainingGold = amount;
         if (getBalance() < amount) {
-            remainingGold = amount = getBalance();
+            return;
         }
 
-        if (getPhysicalChestInventories().isEmpty()) {
-            Bukkit.broadcastMessage("No chests found!");
-            return false;
+        if (getChestLocations().isEmpty()) {
+            return;
         }
 
         for (Inventory chestInventory : getPhysicalChestInventories()) {
@@ -187,19 +194,14 @@ public class TownBank {
                 break;
         }
 
-        removeMoney(amount - remainingGold);
-        return true;
     }
 
-    public boolean deposit(Player player, int amountToDeposit) {
-        Bukkit.broadcastMessage("deposit method active");
-        int remainingGold = amountToDeposit;
+    public void deposit(Player player, int amount) {
+        int remainingGold = amount;
 
+        if (!canDeposit(player, amount))
+            return;
 
-        if (getPhysicalChestInventories().isEmpty()) {
-            Bukkit.broadcastMessage("No chests found!");
-            return false;
-        }
         for (Inventory chestInventory : getPhysicalChestInventories()) {
             if (remainingGold <= 0) {
                 break; // No more gold to deposit
@@ -210,9 +212,9 @@ public class TownBank {
                 continue;
 
             // remove the gold from player
-            converter.remove(player, amountToDeposit);
+            converter.remove(player, amount);
             // add it into the chest
-            remainingGold = converter.giveAndReturnExcess(chestInventory, amountToDeposit);
+            remainingGold = converter.giveAndReturnExcess(chestInventory, amount);
             // compress the chest automatically for efficiency
             var compressed = converter.compress(converter.getInventoryValue(chestInventory));
             chestInventory.clear();
@@ -221,28 +223,41 @@ public class TownBank {
                 break;
         }
 
-        if (amountToDeposit == remainingGold) {
-            Bukkit.broadcastMessage("No space found! Nothing deposited...");
-            return false;
+        if (amount == remainingGold) {
+            player.sendMessage(Util.getMessage("bank-no-space"));
+            return;
         }
 
-        addMoney(amountToDeposit - remainingGold);
+        addMoney(amount - remainingGold);
         // Handle any remaining excess gold
         if (remainingGold > 0) {
             var excessItems = converter.compress(remainingGold);
             for (ItemStack goldItem : excessItems) {
                 player.getWorld().dropItem(player.getLocation(), goldItem);
             }
+            player.sendMessage(Util.getMessage("warning-drops-bank"));
         }
-        return true;
+
+        player.sendMessage(Util.getMessage("bank-deposited", Placeholder.component("amount", Component.text(amount - remainingGold))));
     }
 
-    public boolean add(int amountToDeposit) {
-        int remainingGold = amountToDeposit;
+    public boolean canDeposit(Player player, int amount) {
+        if (converter.getInventoryValue(player) < amount) {
+            player.sendMessage(Util.getMessage("error-notenough"));
+            return true;
+        }
+        if (getChestLocations().isEmpty()) {
+            player.sendMessage(Util.getMessage("error-no-bank-chests"));
+            return true;
+        }
+        return false;
+    }
 
+    public void add(int amount) {
+        int remainingGold = amount;
 
-        if (getPhysicalChestInventories().isEmpty()) {
-            return false;
+        if (getChestLocations().isEmpty()) {
+            return;
         }
         for (Inventory chestInventory : getPhysicalChestInventories()) {
             if (remainingGold <= 0) {
@@ -254,7 +269,7 @@ public class TownBank {
                 continue;
 
             // add it into the chest
-            remainingGold = converter.giveAndReturnExcess(chestInventory, amountToDeposit);
+            remainingGold = converter.giveAndReturnExcess(chestInventory, amount);
             // compress the chest automatically for efficiency
             var compressed = converter.compress(converter.getInventoryValue(chestInventory));
             chestInventory.clear();
@@ -263,12 +278,11 @@ public class TownBank {
                 break;
         }
 
-        if (amountToDeposit == remainingGold) {
-            return false;
+        if (amount == remainingGold) {
+            return;
         }
 
-        addMoney(amountToDeposit - remainingGold);
-        return true;
+        addMoney(amount - remainingGold);
     }
 
 
@@ -280,4 +294,5 @@ public class TownBank {
         String[] split = string.split(";");
         return new Location(Bukkit.getWorld(split[0]), Double.parseDouble(split[1]), Double.parseDouble(split[2]), Double.parseDouble(split[3]));
     }
+
 }
