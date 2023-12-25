@@ -346,7 +346,7 @@ public class EconomyImplementer implements Economy {
             // Getting balance and calculating new Balance
             oldBalance = bank.getAccountBalance(uuid);
             int newBalance = (int) (oldBalance + amount);
-            bank.setBalance(uuid, Math.min(5000, newBalance));
+            bank.setBalance(uuid, newBalance);
             return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, "");
         } else {
             return depositNonPlayer(accountName, amount);
@@ -360,8 +360,8 @@ public class EconomyImplementer implements Economy {
         // If amount is negative -> return
         if (amount < 0) return;
 
-        int excess = converter.giveAndReturnExcess(player.getInventory(), amount);
-        int newBalance = oldBalance + (amount - excess);
+        converter.remove(player.getInventory(), amount);
+        int newBalance = oldBalance + amount;
         bank.setBalance(uuid, newBalance);
     }
     @NotNull

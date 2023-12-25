@@ -162,8 +162,6 @@ public class Converter {
 
     public void deposit(Player player, int nuggets){
         OfflinePlayer op = Bukkit.getOfflinePlayer(player.getUniqueId());
-
-        remove(player, nuggets);
         eco.depositPlayer(op, nuggets);
     }
 
